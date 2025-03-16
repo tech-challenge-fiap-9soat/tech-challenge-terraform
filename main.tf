@@ -18,11 +18,17 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "key_name" {
+  description = "Nome da chave SSH usada para acessar a EC2"
+  type        = string
+  default     = "chave-ssh"
+}
+
 locals {
   project_name = "tech-challenge-terraform"
 }
 
-data "aws_ami" "ubuntu" {
+data "aws_ami" "ubuntu" { # Amazon Machine Image
   most_recent = true
 
   filter {
@@ -101,6 +107,13 @@ resource "aws_security_group" "web-sg" {
     cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer um
   }
 
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer lugar (para estudos, está ok)
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -119,6 +132,7 @@ resource "aws_instance" "app_server" {
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.web-sg.id]
+  key_name      = var.key_name
 
   tags = {
     Name = "${local.project_name}-server"
@@ -140,3 +154,9 @@ output "elastic_ip" {
   description = "IP público fixo da instância EC2"
   value       = aws_eip.elastic_ip.public_ip
 }
+
+output "ssh_command" {
+  description = "Comando para acessar a instância EC2 via SSH"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.elastic_ip.public_ip}"
+}
+
