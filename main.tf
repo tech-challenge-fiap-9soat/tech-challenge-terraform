@@ -35,11 +35,12 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["099720109477"] # Canonical
+  owners = ["099720109477"] # Canonical (dona das imagens do Ubuntu)
 }
 
 data "aws_availability_zones" "available" {}
 
+# Criando a VPC (Virtual Private Cloud)
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16" # Define o intervalo de IPs da VPC
 
@@ -48,48 +49,88 @@ resource "aws_vpc" "main" {
   }
 }
 
+# Criando um Internet Gateway para acesso externo
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.project_name}-igw"
+  }
+}
+
+# Criando uma tabela de rotas pública
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "${local.project_name}-route-table"
+  }
+}
+
+# Criando a Subnet Pública
 resource "aws_subnet" "main" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = true # Permite IPs públicos automaticamente
 
   tags = {
     Name = "${local.project_name}-subnet"
   }
 }
 
+# Associando a Subnet à Tabela de Rotas
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.main.id
+  route_table_id = aws_route_table.public.id
+}
+
+# Criando o Security Group (Firewall)
 resource "aws_security_group" "web-sg" {
   vpc_id = aws_vpc.main.id
+
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer um
   }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "${local.project_name}-sg"
+  }
 }
 
+# Criando a Instância EC2
 resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.main.id # Coloca a instância dentro da subnet
-  security_groups = [aws_security_group.web-sg.id]  # Aplica regras de firewall
+  subnet_id     = aws_subnet.main.id
+  vpc_security_group_ids = [aws_security_group.web-sg.id]
 
   tags = {
     Name = "${local.project_name}-server"
   }
 }
 
+# Criando um Elastic IP
 resource "aws_eip" "elastic_ip" {
   instance = aws_instance.app_server.id
 }
 
+# Outputs (Resultados)
 output "vpc_id" {
   description = "ID da VPC criada"
   value       = aws_vpc.main.id
