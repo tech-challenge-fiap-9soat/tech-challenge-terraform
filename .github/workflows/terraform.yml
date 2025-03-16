@@ -3,10 +3,10 @@ name: Terraform Deploy
 on:
   push:
     branches:
-      - main  # Roda quando há push na branch main
+      - master  # Roda quando há push na branch master
   pull_request:
     branches:
-      - main  # Valida mudanças no PR antes de mergear
+      - master  # Valida mudanças no PR antes de mergear
 
 jobs:
   terraform:
@@ -77,5 +77,5 @@ jobs:
         run: exit 1
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
