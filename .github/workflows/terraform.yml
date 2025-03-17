@@ -1,4 +1,4 @@
-name: Deploy EKS com Terraform
+name: Terraform Deploy
 
 on:
   push:
