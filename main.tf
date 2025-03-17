@@ -8,7 +8,9 @@ terraform {
   required_version = ">= 1.1.0"
 
   cloud {
+
     organization = "tech-challenge-fiap-fastfood"
+
     workspaces {
       name = "tech-challenge"
     }
@@ -25,35 +27,100 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "key_name" {
+  description = "Nome da chave SSH usada para acessar a EC2"
+  type        = string
+  default     = "chave-ssh"
+}
+
 locals {
   project_name = "tech-challenge-terraform"
 }
 
-# Criando a VPC
+data "aws_ami" "ubuntu" { # Amazon Machine Image
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # Canonical (dona das imagens do Ubuntu)
+}
+
+data "aws_availability_zones" "available" {}
+
+# Criando a VPC (Virtual Private Cloud)
 resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  tags       = { Name = "${local.project_name}-vpc" }
+  cidr_block = "10.0.0.0/16" # Define o intervalo de IPs da VPC
+
+  tags = {
+    Name = "${local.project_name}-vpc"
+  }
 }
 
-# Criando as Subnets Públicas
-resource "aws_subnet" "public" {
-  count                   = 2
+# Criando um Internet Gateway para acesso externo
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.project_name}-igw"
+  }
+}
+
+# Criando uma tabela de rotas pública
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "${local.project_name}-route-table"
+  }
+}
+
+# Criando a Subnet Pública
+resource "aws_subnet" "main" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.${count.index}.0/24"
-  availability_zone       = element(["us-east-1a", "us-east-1b"], count.index)
-  map_public_ip_on_launch = true
-  tags                    = { Name = "${local.project_name}-public-subnet-${count.index}" }
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true # Permite IPs públicos automaticamente
+
+  tags = {
+    Name = "${local.project_name}-subnet"
+  }
 }
 
-# Criando o Security Group para o EKS
-resource "aws_security_group" "eks_sg" {
+# Associando a Subnet à Tabela de Rotas
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.main.id
+  route_table_id = aws_route_table.public.id
+}
+
+# Criando o Security Group (Firewall)
+resource "aws_security_group" "web-sg" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port   = 443
-    to_port     = 443
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer um
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer lugar (para estudos, está ok)
   }
 
   egress {
@@ -63,85 +130,42 @@ resource "aws_security_group" "eks_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "${local.project_name}-eks-sg" }
-}
-
-# Criando a Role para o EKS
-resource "aws_iam_role" "eks_role" {
-  name = "${local.project_name}-eks-role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": { "Service": "eks.amazonaws.com" },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.eks_role.name
-}
-
-# Criando o Cluster EKS
-resource "aws_eks_cluster" "eks" {
-  name     = "${local.project_name}-eks-cluster"
-  role_arn = aws_iam_role.eks_role.arn
-
-  vpc_config {
-    subnet_ids         = aws_subnet.public[*].id
-    security_group_ids = [aws_security_group.eks_sg.id]
+  tags = {
+    Name = "${local.project_name}-sg"
   }
 }
 
-# Criando a Role para os nós do cluster
-resource "aws_iam_role" "eks_node_role" {
-  name = "${local.project_name}-eks-node-role"
+# Criando a Instância EC2
+resource "aws_instance" "app_server" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.main.id
+  vpc_security_group_ids = [aws_security_group.web-sg.id]
+  key_name               = var.key_name
 
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": { "Service": "ec2.amazonaws.com" },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.eks_node_role.name
-}
-
-# Criando o Node Group (nós do cluster)
-resource "aws_eks_node_group" "eks_nodes" {
-  cluster_name    = aws_eks_cluster.eks.name
-  node_group_name = "${local.project_name}-eks-nodes"
-  node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = aws_subnet.public[*].id
-
-  scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 1
+  tags = {
+    Name = "${local.project_name}-server"
   }
 }
 
-# Outputs
-output "eks_cluster_name" {
-  value = aws_eks_cluster.eks.name
+# Criando um Elastic IP
+resource "aws_eip" "elastic_ip" {
+  instance = aws_instance.app_server.id
 }
 
-output "eks_endpoint" {
-  value = aws_eks_cluster.eks.endpoint
+# Outputs (Resultados)
+output "vpc_id" {
+  description = "ID da VPC criada"
+  value       = aws_vpc.main.id
 }
+
+output "elastic_ip" {
+  description = "IP público fixo da instância EC2"
+  value       = aws_eip.elastic_ip.public_ip
+}
+
+output "ssh_command" {
+  description = "Comando para acessar a instância EC2 via SSH"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.elastic_ip.public_ip}"
+}
+
