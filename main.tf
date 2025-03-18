@@ -150,6 +150,57 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.web-sg.id]
   key_name               = var.key_name
 
+  user_data = <<-EOF
+    #!/bin/bash
+    set -e
+
+    echo "🚀 Verificando pacotes na EC2..."
+
+    # Atualiza pacotes apenas se necessário
+    sudo apt update -y && sudo apt upgrade -y
+
+    # Instalar Docker se não estiver instalado
+    if ! command -v docker &> /dev/null; then
+      echo "⚙️ Instalando Docker..."
+      sudo apt install -y docker.io
+      sudo systemctl enable docker
+      sudo systemctl start docker
+      sudo usermod -aG docker ubuntu
+    else
+      echo "✅ Docker já instalado"
+    fi
+
+    # Instalar kubectl se não estiver instalado
+    if ! command -v kubectl &> /dev/null; then
+      echo "⚙️ Instalando kubectl..."
+      curl -LO "https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      chmod +x kubectl
+      sudo mv kubectl /usr/local/bin/
+    else
+      echo "✅ kubectl já instalado"
+    fi
+
+    # Instalar Minikube se não estiver instalado
+    if ! command -v minikube &> /dev/null; then
+      echo "⚙️ Instalando Minikube..."
+      curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      chmod +x minikube
+      sudo mv minikube /usr/local/bin/
+    else
+      echo "✅ Minikube já instalado"
+    fi
+
+    # Iniciar Minikube apenas se ele não estiver rodando
+    if ! minikube status &> /dev/null; then
+      echo "🚀 Iniciando Minikube..."
+      sudo -u ubuntu minikube start --driver=docker
+    else
+      echo "✅ Minikube já está rodando"
+    fi
+
+    echo "✅ Setup finalizado!"
+  EOF
+
   tags = {
     Name = "${local.project_name}-server"
   }
