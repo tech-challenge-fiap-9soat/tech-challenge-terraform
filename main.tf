@@ -150,7 +150,7 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.web-sg.id]
   key_name               = var.key_name
 
-  user_data = <<EOF
+  user_data = <<-EOF
     #!/bin/bash
     set -e
 
