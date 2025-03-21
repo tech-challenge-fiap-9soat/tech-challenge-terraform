@@ -174,8 +174,8 @@ resource "aws_instance" "app_server" {
     if ! command -v kubectl &> /dev/null; then
       echo "⚙️ Instalando kubectl..."
       KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-      curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-      curl -LO "https://dl.k8s.io/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+      curl -LO "https://dl.k8s.io/release/$${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+      curl -LO "https://dl.k8s.io/$${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
       echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check || exit 1
       chmod +x kubectl
       sudo mv kubectl /usr/local/bin/
