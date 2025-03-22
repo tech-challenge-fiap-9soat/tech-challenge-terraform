@@ -8,9 +8,7 @@ terraform {
   required_version = ">= 1.1.0"
 
   cloud {
-
     organization = "tech-challenge-fiap-fastfood"
-
     workspaces {
       name = "tech-challenge"
     }
@@ -67,7 +65,6 @@ resource "aws_vpc" "main" {
 # Criando um Internet Gateway para acesso externo
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.main.id
-
   tags = {
     Name = "${local.project_name}-igw"
   }
@@ -76,12 +73,10 @@ resource "aws_internet_gateway" "gw" {
 # Criando uma tabela de rotas pública
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.gw.id
   }
-
   tags = {
     Name = "${local.project_name}-route-table"
   }
@@ -127,7 +122,7 @@ resource "aws_security_group" "web-sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer lugar (para estudos, está ok)
+    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer lugar
   }
 
   egress {
@@ -184,22 +179,14 @@ resource "aws_instance" "app_server" {
       echo "✅ kubectl já instalado"
     fi
 
-    # Instalar Minikube se não estiver instalado
-    if ! command -v minikube &> /dev/null; then
-      echo "⚙️ Instalando Minikube..."
-      curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-      chmod +x minikube
-      sudo mv minikube /usr/local/bin/
+    # Instalar Kind apenas se não estiver instalado
+    if ! command -v kind &> /dev/null; then
+      echo "⚙️ Instalando Kind..."
+      curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+      chmod +x ./kind
+      sudo mv ./kind /usr/local/bin/kind
     else
-      echo "✅ Minikube já instalado"
-    fi
-
-    # Iniciar Minikube apenas se ele não estiver rodando
-    if ! minikube status &> /dev/null; then
-      echo "🚀 Iniciando Minikube..."
-      sudo -u ubuntu minikube start --driver=docker
-    else
-      echo "✅ Minikube já está rodando"
+      echo "✅ Kind já instalado"
     fi
 
     echo "✅ Setup finalizado!"
@@ -230,4 +217,3 @@ output "ssh_command" {
   description = "Comando para acessar a instância EC2 via SSH"
   value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.elastic_ip.public_ip}"
 }
-
