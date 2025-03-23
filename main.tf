@@ -190,10 +190,7 @@ resource "aws_instance" "app_server" {
       echo "✅ Kind já instalado"
     fi
 
-    # Instalar iptables-persistent para salvar regras
-    sudo apt-get install -y iptables-persistent
-
-        # Comandos iptables
+    # Comandos iptables
     # Verificar se a regra de DNAT já existe
     if ! sudo iptables -t nat -C PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001; then
       sudo iptables -t nat -A PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001
@@ -204,7 +201,12 @@ resource "aws_instance" "app_server" {
       sudo iptables -A FORWARD -p tcp --dport 30001 -j ACCEPT
     fi
 
-    # Salvar as regras
+    # Instalar iptables-persistent para salvar regras
+    if ! dpkg -l | grep -q iptables-persistent; then
+      sudo apt-get install -y iptables-persistent
+    fi
+
+    # Salvar regras e garantir que elas sejam aplicadas após o reboot
     sudo netfilter-persistent save
     sudo systemctl enable netfilter-persistent
     sudo systemctl restart netfilter-persistent
