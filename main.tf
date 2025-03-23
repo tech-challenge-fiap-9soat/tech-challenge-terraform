@@ -85,8 +85,6 @@ data "aws_ami" "ubuntu" { # Amazon Machine Image
   owners = ["099720109477"] # Canonical (dona das imagens do Ubuntu)
 }
 
-data "aws_availability_zones" "available" {}
-
 # Criando um Internet Gateway para acesso externo
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.this.id
