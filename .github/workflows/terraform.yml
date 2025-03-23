@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master  # Roda quando há push na branch master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   terraform:
