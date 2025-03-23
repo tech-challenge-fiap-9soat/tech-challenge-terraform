@@ -53,37 +53,6 @@ data "aws_vpc" "existing" {
   id    = var.existing_vpc_id
 }
 
-# Se a VPC já tem um Internet Gateway, buscar o existente
-data "aws_internet_gateway" "existing" {
-  filter {
-    name   = "attachment.vpc-id"
-    values = [local.vpc_id]
-  }
-}
-
-# Se não existir, criar um novo
-resource "aws_internet_gateway" "gw" {
-  count  = length(data.aws_internet_gateway.existing.id) > 0 ? 0 : 1
-  vpc_id = local.vpc_id
-
-  tags = {
-    Name = "${local.project_name}-igw"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = local.vpc_id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = length(data.aws_internet_gateway.existing.id) > 0 ? data.aws_internet_gateway.existing.id : aws_internet_gateway.gw[0].id
-  }
-
-  tags = {
-    Name = "${local.project_name}-route-table"
-  }
-}
-
 # Se a VPC não existe, cria uma nova
 resource "aws_vpc" "this" {
   count      = var.existing_vpc_id == "" ? 1 : 0
