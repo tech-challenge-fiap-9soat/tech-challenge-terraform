@@ -179,23 +179,33 @@ resource "aws_instance" "app_server" {
       echo "✅ Kind já instalado"
     fi
 
-    echo "🚀 Criando script de configuração do iptables..."
+    # Comandos iptables
+    # Verificar se a regra de DNAT já existe
+    if ! sudo iptables -t nat -C PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001; then
+      sudo iptables -t nat -A PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001
+    fi
 
-    # Criar script no /etc/rc.local
-    sudo bash -c 'cat <<EOT > /etc/rc.local
-    #!/bin/bash
-    iptables -t nat -A PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001
-    iptables -A FORWARD -p tcp --dport 30001 -j ACCEPT
-    exit 0
-    EOT'
+    # Verificar se a regra de ACCEPT já existe
+    if ! sudo iptables -C FORWARD -p tcp --dport 30001 -j ACCEPT; then
+      sudo iptables -A FORWARD -p tcp --dport 30001 -j ACCEPT
+    fi
 
-    # Dar permissão de execução
-    sudo chmod +x /etc/rc.local
+    # Instalar iptables-persistent para salvar regras
+    if ! dpkg -l | grep -q iptables-persistent; then
+      sudo apt-get install -y iptables-persistent
+    fi
 
-    # Executa script
-    sudo /etc/rc.local
+    # Aguardar para garantir que os serviços estejam prontos
+    sleep 10
 
-    echo "✅ Script configurado para rodar no boot!"
+    # Garantir que o serviço netfilter-persistent esteja ativo
+    sudo systemctl start netfilter-persistent
+
+    # Salvar regras e garantir que elas sejam aplicadas após o reboot
+    sudo netfilter-persistent save
+    sudo systemctl enable netfilter-persistent
+    sudo systemctl restart netfilter-persistent
+
     echo "✅ Setup finalizado!"
   EOF
 
