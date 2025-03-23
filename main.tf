@@ -34,7 +34,7 @@ variable "key_name" {
 variable "existing_vpc_id" {
   description = "ID da VPC existente (deixe vazio para criar uma nova)"
   type        = string
-  default     = "" # Se vazio, criará uma nova VPC
+  default     = "vpc-0aac8157501ffc23c" # Se vazio, criará uma nova VPC
 }
 
 locals {
