@@ -206,6 +206,12 @@ resource "aws_instance" "app_server" {
       sudo apt-get install -y iptables-persistent
     fi
 
+    # Aguardar para garantir que os serviços estejam prontos
+    sleep 10
+
+    # Garantir que o serviço netfilter-persistent esteja ativo
+    sudo systemctl start netfilter-persistent
+
     # Salvar regras e garantir que elas sejam aplicadas após o reboot
     sudo netfilter-persistent save
     sudo systemctl enable netfilter-persistent
