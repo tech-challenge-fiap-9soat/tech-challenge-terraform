@@ -235,11 +235,6 @@ resource "aws_instance" "app_server" {
   }
 }
 
-# Criando um Elastic IP
-resource "aws_eip" "elastic_ip" {
-  instance = aws_instance.app_server.id
-}
-
 # Outputs (Resultados)
 output "vpc_id" {
   description = "ID da VPC"
@@ -248,10 +243,10 @@ output "vpc_id" {
 
 output "elastic_ip" {
   description = "IP público fixo da instância EC2"
-  value       = aws_eip.elastic_ip.public_ip
+  value       = aws_instance.app_server.public_ip
 }
 
 output "ssh_command" {
   description = "Comando para acessar a instância EC2 via SSH"
-  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.elastic_ip.public_ip}"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_instance.app_server.public_ip}"
 }
