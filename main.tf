@@ -37,6 +37,12 @@ variable "existing_vpc_id" {
   default     = "vpc-0aac8157501ffc23c" # Se vazio, criará uma nova VPC
 }
 
+variable "existing_subnet_id" {
+  description = "ID da subnet existente"
+  type        = string
+  default     = "subnet-0f849d165103ae570"
+}
+
 locals {
   project_name = "tech-challenge-terraform"
 }
@@ -63,6 +69,10 @@ locals {
 
 data "aws_availability_zones" "available" {}
 
+data "aws_subnet" "existing" {
+  id = var.existing_subnet_id # Substitua pelo ID da subnet existente
+}
+
 data "aws_ami" "ubuntu" { # Amazon Machine Image
   most_recent = true
 
@@ -77,18 +87,6 @@ data "aws_ami" "ubuntu" { # Amazon Machine Image
   }
 
   owners = ["099720109477"] # Canonical (dona das imagens do Ubuntu)
-}
-
-# Criando a Subnet Pública
-resource "aws_subnet" "main" {
-  vpc_id                  = local.vpc_id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true # Permite IPs públicos automaticamente
-
-  tags = {
-    Name = "${local.project_name}-subnet"
-  }
 }
 
 # Criando um Security Group (Firewall)
@@ -133,7 +131,7 @@ resource "aws_security_group" "web-sg" {
 resource "aws_instance" "app_server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t2.medium"
-  subnet_id              = aws_subnet.main.id
+  subnet_id              = data.aws_subnet.existing.id
   vpc_security_group_ids = [aws_security_group.web-sg.id]
   key_name               = var.key_name
 
