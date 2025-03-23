@@ -87,7 +87,7 @@ data "aws_ami" "ubuntu" { # Amazon Machine Image
 
 # Criando um Internet Gateway para acesso externo
 resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = local.vpc_id # Usando a variável local.vpc_id que já contém a VPC correta
   tags = {
     Name = "${local.project_name}-igw"
   }
@@ -95,7 +95,7 @@ resource "aws_internet_gateway" "gw" {
 
 # Criando uma tabela de rotas pública
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = local.vpc_id # Usando a variável local.vpc_id que já contém a VPC correta
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.gw.id
@@ -107,7 +107,7 @@ resource "aws_route_table" "public" {
 
 # Criando a Subnet Pública
 resource "aws_subnet" "main" {
-  vpc_id                  = aws_vpc.this.id
+  vpc_id                  = local.vpc_id # Usando a variável local.vpc_id que já contém a VPC correta
   cidr_block              = "10.0.3.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true # Permite IPs públicos automaticamente
@@ -125,7 +125,7 @@ resource "aws_route_table_association" "public" {
 
 # Criando o Security Group (Firewall)
 resource "aws_security_group" "web-sg" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = local.vpc_id # Usando a variável local.vpc_id que já contém a VPC correta
 
   ingress {
     from_port   = 8080
