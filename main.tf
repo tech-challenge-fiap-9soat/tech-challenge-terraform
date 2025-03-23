@@ -31,9 +31,37 @@ variable "key_name" {
   default     = "chave-ssh"
 }
 
+variable "existing_vpc_id" {
+  description = "ID da VPC existente (deixe vazio para criar uma nova)"
+  type        = string
+  default     = "" # Se vazio, criará uma nova VPC
+}
+
 locals {
   project_name = "tech-challenge-terraform"
 }
+
+# Se a VPC já existe, busca a VPC existente
+data "aws_vpc" "existing" {
+  count = var.existing_vpc_id != "" ? 1 : 0
+  id    = var.existing_vpc_id
+}
+
+# Se a VPC não existe, cria uma nova
+resource "aws_vpc" "this" {
+  count      = var.existing_vpc_id == "" ? 1 : 0
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "${local.project_name}-vpc"
+  }
+}
+
+# Definição do ID da VPC, seja existente ou criada
+locals {
+  vpc_id = var.existing_vpc_id != "" ? data.aws_vpc.existing[0].id : aws_vpc.this[0].id
+}
+
+data "aws_availability_zones" "available" {}
 
 data "aws_ami" "ubuntu" { # Amazon Machine Image
   most_recent = true
@@ -51,40 +79,9 @@ data "aws_ami" "ubuntu" { # Amazon Machine Image
   owners = ["099720109477"] # Canonical (dona das imagens do Ubuntu)
 }
 
-data "aws_availability_zones" "available" {}
-
-# Criando a VPC (Virtual Private Cloud)
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16" # Define o intervalo de IPs da VPC
-
-  tags = {
-    Name = "${local.project_name}-vpc"
-  }
-}
-
-# Criando um Internet Gateway para acesso externo
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id
-  tags = {
-    Name = "${local.project_name}-igw"
-  }
-}
-
-# Criando uma tabela de rotas pública
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
-  tags = {
-    Name = "${local.project_name}-route-table"
-  }
-}
-
 # Criando a Subnet Pública
 resource "aws_subnet" "main" {
-  vpc_id                  = aws_vpc.main.id
+  vpc_id                  = local.vpc_id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true # Permite IPs públicos automaticamente
@@ -94,15 +91,9 @@ resource "aws_subnet" "main" {
   }
 }
 
-# Associando a Subnet à Tabela de Rotas
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.main.id
-  route_table_id = aws_route_table.public.id
-}
-
-# Criando o Security Group (Firewall)
+# Criando um Security Group (Firewall)
 resource "aws_security_group" "web-sg" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.vpc_id
 
   ingress {
     from_port   = 8080
@@ -222,8 +213,8 @@ resource "aws_eip" "elastic_ip" {
 
 # Outputs (Resultados)
 output "vpc_id" {
-  description = "ID da VPC criada"
-  value       = aws_vpc.main.id
+  description = "ID da VPC"
+  value       = local.vpc_id
 }
 
 output "elastic_ip" {
