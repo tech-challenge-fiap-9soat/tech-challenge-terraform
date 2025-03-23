@@ -108,21 +108,22 @@ resource "aws_security_group" "web-sg" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer um
+    cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer IPv4
   }
 
   ingress {
     from_port   = 30001
     to_port     = 30001
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer um
+    cidr_blocks = ["0.0.0.0/0"] # Acessível para qualquer IPv4
+    ipv6_cidr_blocks = ["::/0"] # Acessível para qualquer IPv6
   }
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer lugar
+    cidr_blocks = ["0.0.0.0/0"] # Permite SSH de qualquer IPv4
   }
 
   egress {
@@ -188,6 +189,22 @@ resource "aws_instance" "app_server" {
     else
       echo "✅ Kind já instalado"
     fi
+
+    # Comandos iptables
+    # Verificar se a regra de DNAT já existe
+    if ! sudo iptables -t nat -C PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001; then
+      sudo iptables -t nat -A PREROUTING -p tcp --dport 30001 -j DNAT --to-destination 172.18.0.2:30001
+    fi
+
+    # Verificar se a regra de ACCEPT já existe
+    if ! sudo iptables -C FORWARD -p tcp --dport 30001 -j ACCEPT; then
+      sudo iptables -A FORWARD -p tcp --dport 30001 -j ACCEPT
+    fi
+
+    # Instalar iptables-persistent para salvar regras
+    sudo apt-get install -y iptables-persistent
+    sudo netfilter-persistent save
+    sudo systemctl restart netfilter-persistent
 
     echo "✅ Setup finalizado!"
   EOF
