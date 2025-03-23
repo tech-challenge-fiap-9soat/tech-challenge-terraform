@@ -69,11 +69,6 @@ locals {
 
 data "aws_availability_zones" "available" {}
 
-data "aws_vpc" "existing" {
-  count = length(var.existing_vpc_id) > 0 ? 1 : 0
-  id    = var.existing_vpc_id
-}
-
 data "aws_subnet" "existing" {
   id = var.existing_subnet_id # Substitua pelo ID da subnet existente
 }
