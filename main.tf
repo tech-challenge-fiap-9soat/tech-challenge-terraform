@@ -135,14 +135,6 @@ resource "aws_security_group" "web-sg" {
   }
 
   ingress {
-    from_port        = 30001
-    to_port          = 30001
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"] # Acessível para qualquer IPv4
-    ipv6_cidr_blocks = ["::/0"]      # Acessível para qualquer IPv6
-  }
-
-  ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
