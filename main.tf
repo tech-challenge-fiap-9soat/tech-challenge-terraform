@@ -34,13 +34,13 @@ variable "key_name" {
 variable "existing_vpc_id" {
   description = "ID da VPC existente (deixe vazio para criar uma nova)"
   type        = string
-  default     = "vpc-0aac8157501ffc23c" # Se vazio, criará uma nova VPC
+  default     = ""
 }
 
 variable "existing_subnet_id" {
   description = "ID da subnet existente"
   type        = string
-  default     = "subnet-0f849d165103ae570"
+  default     = ""
 }
 
 locals {
